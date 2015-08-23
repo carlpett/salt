@@ -74,6 +74,17 @@ def genrepo():
     return ret
 
 
+def _extract_key_val(kv, delimiter='='):
+    '''Extract key and value from key=val string.
+    Example:
+    >>> _extract_key_val('foo=bar')
+    ('foo', 'bar')
+    '''
+    pieces = kv.split(delimiter)
+    key = pieces[0]
+    val = delimiter.join(pieces[1:])
+    return key, val
+
 def update_git_repos():
     '''
     Checkout git repos containing Windows Software Package Definitions
@@ -88,19 +99,40 @@ def update_git_repos():
     mminion = salt.minion.MasterMinion(__opts__)
     repo = __opts__['win_repo']
     gitrepos = __opts__['win_gitrepos']
+    repo_cache = __opts__['win_gitrepo_cachedir']
+
     for gitrepo in gitrepos:
+        root = ''
+        options = gitrepo.strip().split()
+        rev = options[0]
+        gitrepo = options[1]
+        for extraopt in options[2:]:
+            # Support multiple key=val attributes as custom parameters.
+            DELIM = '='
+            if DELIM not in extraopt:
+                log.error('Incorrectly formatted extra parameter. '
+                          'Missing \'{0}\': {1}'.format(DELIM, extraopt))
+            key, val = _extract_key_val(extraopt, DELIM)
+            if key == 'root':
+                root = val
+            else:
+                log.warning('Unrecognized extra parameter: {0}'.format(key))
+
         if '/' in gitrepo:
             targetname = gitrepo.split('/')[-1]
         else:
             targetname = gitrepo
-        rev = None
-        # If a revision is specified, use it.
-        if len(gitrepo.strip().split(' ')) > 1:
-            rev, gitrepo = gitrepo.strip().split(' ')
-        gittarget = os.path.join(repo, targetname)
+
+        gittarget = os.path.join(repo_cache, targetname)
         result = mminion.states['git.latest'](gitrepo,
                                               rev=rev,
                                               target=gittarget,
                                               force=True)
+        symlink_path = os.path.join(repo, targetname)
+        target_path = gittarget
+        if root is not '':
+            target_path = os.path.join(target_path, root)
+        os.symlink(target_path, symlink_path)
+
         ret[result['name']] = result['result']
     return ret
