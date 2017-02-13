@@ -1525,15 +1525,19 @@ def create_certificate(
                                                         prepend + kwargs['serial_number'] + '.crt'),
                   pem_type='CERTIFICATE')
 
+    cert_text=cert.as_pem()
+    if 'append_chain' in kwargs and kwargs['append_chain'] is True:
+        cert_text = cert_text + signing_cert
+
     if path:
         return write_pem(
-            text=cert.as_pem(),
+            text=cert_text,
             overwrite=overwrite,
             path=path,
             pem_type='CERTIFICATE'
         )
     else:
-        return cert.as_pem()
+        return cert_text
 # pylint: enable=too-many-locals
 
 
