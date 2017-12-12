@@ -58,6 +58,10 @@ def generate_token(minion_id, signature, impersonated_by_master=False):
                 config['auth']['token'] = response.json()['auth']['client_token']
 
         url = '{0}/v1/auth/token/create'.format(config['url'])
+        if config['auth']['method'] == 'token':
+            if config['auth'].get('role'):
+                url += '/{0}'.format(config['auth']['role'])
+
         headers = {'X-Vault-Token': config['auth']['token']}
         audit_data = {
             'saltstack-jid': globals().get('__jid__', '<no jid set>'),
